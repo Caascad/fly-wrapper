@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+
+DOMAIN="caascad.com"
+
+
+function usage() {
+  cat >&2 <<EOF
+Usage: fly switch [switch-options]
+
+Help Options:
+
+  -h          Show this help message
+
+[switch command options]
+  -z VALUE    Name of the zone
+  -n VALUE    Team to authenticate with
+  -c          Use the client's instance
+EOF
+}
+
+function list_targets() {
+  yq -r --arg target infra-stg '.targets | keys[]' ~/.flyrc
+}
+
+function target_exists() {
+  local name="$1"
+  list_targets | grep -q "^${name}$"
+}
+
+function current_team() {
+  local target="$1"
+  yq -r --arg target "$target" '.targets[$target].team' ~/.flyrc
+}
+
+function config_target() {
+  local target="$1"
+  local team="$2"
+  local url="$3"
+  content=$(yq -y --arg target "$target" --arg team "$team" --arg url "$url" '.targets[$target] += {team: $team, api: $url}' ~/.flyrc)
+  echo -n "$content" > ~/.flyrc
+}
+
+function target_name() {
+  local zone="$1"
+  local kind="$2"
+  echo -n "${zone}.${kind}"
+}
+
+function build_url() {
+  local zone="$1"
+  local kind="$2"
+  local fqdn="ci-infra"
+  [[ "$kind" == "client" ]] && fqdn="ci"
+  echo -n "https://${fqdn}.${zone}.${DOMAIN}"
+}
+
+function current_target() {
+  cat ~/.fly-current-target
+}
+
+function config_team() {
+  local target="$1"
+  local team="$2"
+  content=$(yq -y --arg target "$target" --arg team "$team" '.targets[$target].team = $team' ~/.flyrc)
+  echo -n "$content" > ~/.flyrc
+}
+
+function show_config() {
+  local target="$(current_target)"
+  local team=$(current_team "$target")
+  echo "Current target is $target using team $team"
+}
+
+function fly_switch() {
+  local opt_zone=""
+  local opt_team=""
+  local opt_kind="infra"
+
+  while getopts ":z:n:ch" option; do
+      case "$option" in
+          z) opt_zone="$OPTARG";;
+          n) opt_team="$OPTARG";;
+          c) opt_kind="client";;
+          h) usage; exit 0;;
+          *) usage; exit 1;;
+      esac
+  done
+  shift $((OPTIND-1))
+
+
+  # The -z and -n are provided => change user zone and set team
+  if [[ -n "$opt_zone" ]]; then
+    echo "Asking for changing zone..."
+
+    if [[ -n "$opt_team" ]]; then
+      local target=$(target_name $opt_zone $opt_kind)
+      local url=$(build_url $opt_zone $opt_kind)
+      config_target "$target" "$opt_team" "$url"
+      echo "$target" > ~/.fly-current-target
+    else
+      echo "You need to specify a team"
+      exit 1
+    fi
+
+  # Only -n is provided => change user team
+  elif [[ -n "$opt_team" ]]; then
+    local target="$(current_target)"
+
+    if ! target_exists $target; then
+      echo "Current target does not exist"
+      exit 1
+    fi
+
+    config_team "$target" "$opt_team"
+  fi
+
+  show_config
+  echo
+  fly -t "$(current_target)" userinfo
+}
+
+function main() {
+  if [[ "$#" -ge 1 ]] && [[ "$1" == "switch" ]]; then
+    shift 1
+    fly_switch $@
+    exit 42
+  fi
+
+  local isTargetProvided=false
+  for arg in "$@"; do
+    case "$arg" in
+      -t | --target) isTargetProvided=true;;
+    esac
+  done
+
+  if $isTargetProvided; then
+    cmd=( fly $@ )
+  else
+    cmd=( fly -t $(current_target) $@ )
+  fi
+
+  echo -e "CMD: ${cmd[*]}\n" >&2
+  ${cmd[*]}
+}
+
+main $@
