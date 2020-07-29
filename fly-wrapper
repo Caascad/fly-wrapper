@@ -58,7 +58,9 @@ function build_url() {
 }
 
 function current_target() {
-  cat ~/.fly-current-target
+  if [[ -e "${HOME}/.fly-current-target" ]]; then
+    cat "${HOME}/.fly-current-target"
+  fi
 }
 
 function config_team() {
@@ -138,8 +140,10 @@ function main() {
 
   if $isTargetProvided; then
     cmd=( fly $@ )
+  elif [[ -n "$(current_target)" ]]; then
+    cmd=( fly -t "$(current_target)" $@ )
   else
-    cmd=( fly -t $(current_target) $@ )
+    cmd=( fly $@ )
   fi
 
   echo -e "CMD: ${cmd[*]}\n" >&2
