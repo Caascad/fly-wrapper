@@ -103,7 +103,6 @@ function fly_switch() {
   done
   shift $((OPTIND-1))
 
-
   # The -z and -n are provided => change user zone and set team
   if [[ -n "$opt_zone" ]]; then
     echo "Asking for changing zone..."
@@ -149,16 +148,14 @@ function main() {
     esac
   done
 
-  if $isTargetProvided; then
-    cmd=( fly $@ )
-  elif [[ -n "$(current_target)" ]]; then
-    cmd=( fly -t "$(current_target)" $@ )
+  local args
+  if ! $isTargetProvided && [[ -n "$(current_target)" ]]; then
+    args=( -t "$(current_target)" "$@" )
   else
-    cmd=( fly $@ )
+    args=( "$@" )
   fi
 
-  echo -e "CMD: ${cmd[*]}\n" >&2
-  ${cmd[*]}
+  fly "${args[@]}"
 }
 
-main $@
+main "$@"
