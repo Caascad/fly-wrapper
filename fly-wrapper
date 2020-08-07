@@ -77,6 +77,11 @@ function show_config() {
 }
 
 function fly_switch() {
+  # `fly switch` subcommand does not support autocompletion
+  if [[ -n "${GO_FLAGS_COMPLETION:-}" ]]; then
+    exit 0
+  fi
+
   local opt_zone=""
   local opt_team=""
   local opt_kind="infra"
