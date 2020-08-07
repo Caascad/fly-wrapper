@@ -7,7 +7,7 @@ with pkgs;
 
 stdenv.mkDerivation {
   pname = "fly-wrapper";
-  version = "0.0.1";
+  version = "0.0.2";
 
   nativeBuildInputs = [ makeWrapper ];
 
