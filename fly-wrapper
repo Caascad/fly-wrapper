@@ -73,7 +73,13 @@ function config_team() {
 function show_config() {
   local target="$(current_target)"
   local team=$(current_team "$target")
-  echo "Current target is $target using team $team"
+  if [[ -n "$target" ]] && [[ -n "$team" ]]; then
+    echo "Current target is $target using team $team"
+  else
+    echo "fly switch is not configured properly."
+    echo "Type: fly switch -h"
+    exit 1
+  fi
 }
 
 function fly_switch() {
