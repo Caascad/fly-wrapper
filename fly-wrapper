@@ -130,8 +130,6 @@ function fly_switch() {
   fi
 
   show_config
-  echo
-  fly -t "$(current_target)" userinfo
 }
 
 function main() {
