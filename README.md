@@ -20,7 +20,7 @@ fly switch -z infra-stg -n cicd
 fly switch -n infra
 
 # If you need to connect to concourse client:
-fly switch -z ocb-corp -n caascad -k client
+fly switch -c -z ocb-corp -n caascad
 ```
 
 **Save your target**, you won't need to type that `-t <target>` in every single fly command:
