@@ -127,7 +127,7 @@ function fly_switch() {
       config_target "$target" "$opt_team" "$url"
       echo "$target" > "$TARGET_PATH"
     else
-      echo "You need to specify a team"
+      echo "You need to specify a team. See 'fly switch -h'"
       exit 1
     fi
 
@@ -136,12 +136,12 @@ function fly_switch() {
     local target="$(current_target)"
 
     if [[ -z "$target" ]]; then
-      echo "You should provide a target. See '$0 switch -h'"
+      echo "Cannot find a valid target. Please specify the zone in your command. See 'fly switch -h'"
       exit 1
     fi
 
-    if ! target_exists $target; then
-      echo "Current target does not exist"
+    if ! target_exists "$target"; then
+      echo "Current target does not exist. Please specify the zone in your command. See 'fly switch -h'"
       exit 1
     fi
 
