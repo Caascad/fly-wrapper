@@ -3,7 +3,9 @@
 set -euo pipefail
 
 
-DOMAIN="caascad.com"
+declare -r DOMAIN="caascad.com"
+declare -r FLYRC_PATH="${HOME}/.flyrc"
+declare -r TARGET_PATH="${HOME}/.fly-current-target"
 
 
 function usage() {
@@ -22,7 +24,9 @@ EOF
 }
 
 function list_targets() {
-  yq -r --arg target infra-stg '.targets | keys[]' ~/.flyrc
+  if [[ -f "$FLYRC_PATH" ]]; then
+    yq -r --arg target infra-stg '.targets | keys[]' "$FLYRC_PATH"
+  fi
 }
 
 function target_exists() {
@@ -32,15 +36,22 @@ function target_exists() {
 
 function current_team() {
   local target="$1"
-  yq -r --arg target "$target" '.targets[$target].team' ~/.flyrc
+  if [[ -f "$FLYRC_PATH" ]]; then
+    yq -r --arg target "$target" '.targets[$target].team' "$FLYRC_PATH"
+  fi
 }
 
 function config_target() {
   local target="$1"
   local team="$2"
   local url="$3"
-  content=$(yq -y --arg target "$target" --arg team "$team" --arg url "$url" '.targets[$target] += {team: $team, api: $url}' ~/.flyrc)
-  echo -n "$content" > ~/.flyrc
+  if [[ -f "$FLYRC_PATH" ]]; then
+    cur_flyrc="$(cat $FLYRC_PATH)"
+  else
+    cur_flyrc="targets:"
+  fi
+  content=$(yq -y --arg target "$target" --arg team "$team" --arg url "$url" '.targets[$target] += {team: $team, api: $url}' <<< "$cur_flyrc")
+  echo -n "$content" > "$FLYRC_PATH"
 }
 
 function target_name() {
@@ -58,16 +69,20 @@ function build_url() {
 }
 
 function current_target() {
-  if [[ -e "${HOME}/.fly-current-target" ]]; then
-    cat "${HOME}/.fly-current-target"
+  if [[ -f "$TARGET_PATH" ]]; then
+    cat "$TARGET_PATH"
   fi
 }
 
 function config_team() {
   local target="$1"
   local team="$2"
-  content=$(yq -y --arg target "$target" --arg team "$team" '.targets[$target].team = $team' ~/.flyrc)
-  echo -n "$content" > ~/.flyrc
+  if ! [[ -f "$FLYRC_PATH" ]]; then
+    echo >&2 "Cannot change the team: $FLYRC_PATH not found"
+  fi
+
+  content=$(yq -y --arg target "$target" --arg team "$team" '.targets[$target].team = $team' "$FLYRC_PATH")
+  echo -n "$content" > "$FLYRC_PATH"
 }
 
 function show_config() {
@@ -76,8 +91,7 @@ function show_config() {
   if [[ -n "$target" ]] && [[ -n "$team" ]]; then
     echo "Current target is $target using team $team"
   else
-    echo "fly switch is not configured properly."
-    echo "Type: fly switch -h"
+    echo "No target has been found."
     exit 1
   fi
 }
@@ -111,7 +125,7 @@ function fly_switch() {
       local target=$(target_name $opt_zone $opt_kind)
       local url=$(build_url $opt_zone $opt_kind)
       config_target "$target" "$opt_team" "$url"
-      echo "$target" > ~/.fly-current-target
+      echo "$target" > "$TARGET_PATH"
     else
       echo "You need to specify a team"
       exit 1
@@ -120,6 +134,11 @@ function fly_switch() {
   # Only -n is provided => change user team
   elif [[ -n "$opt_team" ]]; then
     local target="$(current_target)"
+
+    if [[ -z "$target" ]]; then
+      echo "You should provide a target. See '$0 switch -h'"
+      exit 1
+    fi
 
     if ! target_exists $target; then
       echo "Current target does not exist"
