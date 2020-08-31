@@ -136,7 +136,7 @@ function main() {
   if [[ "$#" -ge 1 ]] && [[ "$1" == "switch" ]]; then
     shift 1
     fly_switch $@
-    exit 42
+    exit 0
   fi
 
   local isTargetProvided=false
